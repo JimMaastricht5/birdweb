@@ -1,0 +1,6 @@
+plotly~=5.11.0
+pandas~=1.5.2
+ifcfg~=0.23
+dash~=2.7.0
+google-cloud-storage
+Pillow
