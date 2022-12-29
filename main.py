@@ -6,7 +6,6 @@ import datetime
 import os
 import ifcfg  # does not work on Windows
 import gcs  # shared module from bird classifier project
-import base64
 
 
 #   html.Div(children=last_refresh(),
@@ -22,9 +21,9 @@ def last_refresh():
 
 
 def load_message_stream():
+    # https://storage.googleapis.com/tweeterssp-web-site-contents/2022-12-29-11-57-29227.jpg
     try:
         url_prefix = 'http://' + URL_PREFIX if PORT == 0 else 'http://' + URL_PREFIX + ':' + str(PORT)
-        # df = pd.read_csv(os.getcwd()+'/webstream.csv')
         df = GCS_STORAGE.get_df(DATES[0]+'webstream.csv')
         df = df.reset_index(drop=True)
         # df = df.drop(columns=['Unnamed: 0'])
@@ -55,7 +54,6 @@ def load_message_stream():
 def load_bird_occurrences():
     cname_list = []
     try:
-        # df = pd.read_csv(os.getcwd()+'/web_occurrences.csv')
         df = GCS_STORAGE.get_df(DATES[0]+'web_occurrences.csv')
         df['Date Time'] = pd.to_datetime(df['Date Time'])
         df['Hour'] = pd.to_numeric(df['Date Time'].dt.strftime('%H')) + \
@@ -86,24 +84,18 @@ def load_chart():
     return fig1
 
 
-def load_images():
-    #     html.Img(id="tag_id", src=img_data, alt="my image", width="200", height="400",className="img_class")
-    images_base64 = []
-    blob_names = GCS_STORAGE.get_img_list()
-    images = GCS_STORAGE.get_all_img_files(blob_names)
-    # for img_data in images:
-    #     img_data = base64.b64encode(img_data)
-    #     img_data = img_data.decode()
-    #     img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
-    #     images_base64.append(img_data)
-    return images
+def find_last(file_name_list, search_str):
+    last_name = ''
+    for file_name in file_name_list:
+        if file_name.find(search_str) != -1:
+            last_name = file_name
+            break
+    return last_name
 
 
-def to_base64_image(img_data):
-    img_data = base64.b64encode(img_data)
-    img_data = img_data.decode()
-    img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
-    return img_data
+def load_image(blob_name):  # shorter reference
+    image_data = GCS_STORAGE.get_img_file(blob_name)
+    return image_data
 
 
 # ******************** start dash app *****************
@@ -114,15 +106,21 @@ server = app.server  # get container reference
 
 GCS_STORAGE = gcs.Storage()
 CSV_LIST = GCS_STORAGE.get_csv_list()
+
+# build list of dates with data
 DATES = []
 for csv_name in CSV_LIST:
     csv_date = csv_name[0:csv_name.find('web')]
     if csv_date not in DATES:
         DATES.append(csv_date)  # get dates with info
+DATES.reverse()  # newest to oldest info
 
 DF = load_bird_occurrences()  # test stream of bird occurrences for graph
 DF_STREAM = load_message_stream()  # message stream from device
-IMAGES = load_images()
+IMAGE_NAMES = GCS_STORAGE.get_img_list()
+IMAGE_NAMES.reverse() # reverse
+LAST_GIF_NAME = find_last(IMAGE_NAMES,'.gif')
+# IMAGES = load_images()  # load list of images
 
 
 # ************* Web Layout *********************
@@ -179,9 +177,9 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         html.Div([
             html.A([
                 # html.Img(src=app.get_asset_url('birds.gif'), id='animated_gif',
-                html.Img(src=IMAGES[0], id='animated_gif',
+                html.Img(src=load_image(LAST_GIF_NAME), id='animated_gif',
                          style={'height': '320px', 'width': '240px'})
-            ], href=app.get_asset_url('birds.gif'), target="_blank"),
+            ], href=app.get_asset_url(LAST_GIF_NAME), target="_blank"),
         ]),
         # graph container
         html.Div([
@@ -193,19 +191,19 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 
     html.Div(children=[
         html.A([
-            html.Img(src=app.get_asset_url('0.jpg'), style={'height': '213px', 'width': '160px'})
+            html.Img(src=load_image(IMAGE_NAMES[0]), style={'height': '213px', 'width': '160px'})
         ], href=app.get_asset_url('0.jpg'), target="_blank"),
         html.A([
-            html.Img(src=app.get_asset_url('1.jpg'), style={'height': '213px', 'width': '160px'},)
+            html.Img(src=load_image(IMAGE_NAMES[1]), style={'height': '213px', 'width': '160px'},)
         ], href=app.get_asset_url('1.jpg'), target="_blank"),
         html.A([
-            html.Img(src=app.get_asset_url('2.jpg'), style={'height': '213px', 'width': '160px'},)
+            html.Img(src=load_image(IMAGE_NAMES[2]), style={'height': '213px', 'width': '160px'},)
         ], href=app.get_asset_url('2.jpg'), target="_blank"),
         html.A([
-            html.Img(src=app.get_asset_url('3.jpg'), style={'height': '213px', 'width': '160px'},)
+            html.Img(src=load_image(IMAGE_NAMES[3]), style={'height': '213px', 'width': '160px'},)
         ], href=app.get_asset_url('3.jpg'), target="_blank"),
         html.A([
-            html.Img(src=app.get_asset_url('4.jpg'), style={'height': '213px', 'width': '160px'},)
+            html.Img(src=load_image(IMAGE_NAMES[4]), style={'height': '213px', 'width': '160px'},)
         ], href=app.get_asset_url('4.jpg'), target="_blank"),
     ]
     ),
@@ -254,7 +252,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         page_size=10,
             ),
 
-    dcc.Interval(id='interval', interval=30000, n_intervals=0)  # update every 30 seconds
+    dcc.Interval(id='interval', interval=300000, n_intervals=0)  # update every 300 seconds
     ])
 
 
@@ -307,13 +305,3 @@ if __name__ == "__main__":
     PORT = 8080
     # app.run_server(debug=True, host=URL_PREFIX, port=PORT)
     app.run_server(debug=True, port=PORT)
-
-
-# possible way to load images
-# with open(imgfile, "rb") as image_file:
-#     img_data = base64.b64encode(image_file.read())
-#     img_data = img_data.decode()
-#     img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
-#     # ...
-#     html.Img(id="tag_id", src=img_data, alt="my image", width="200", height="400",
-#     className="img_class")
