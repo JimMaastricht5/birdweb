@@ -23,16 +23,13 @@ def last_refresh():
 def load_message_stream():
     # https://storage.googleapis.com/tweeterssp-web-site-contents/2022-12-29-11-57-29227.jpg
     try:
-        url_prefix = 'http://' + URL_PREFIX if PORT == 0 else 'http://' + URL_PREFIX + ':' + str(PORT)
         df = GCS_STORAGE.get_df(DATES[0]+'webstream.csv')
         df = df.reset_index(drop=True)
-        # df = df.drop(columns=['Unnamed: 0'])
         df = df.sort_values(by='Date Time', ascending=False)
         # Markdown format for image as a link: [![alt text](image link)](web link)
         try:
-            df['Image Name'] = df['Image Name'].str[-5:]  # drop all but name of file 0.jpg
-            df['Image Name'] = '[![' + df['Image Name'] + '](' + url_prefix + '/assets/' + df['Image Name'] + ')](' + \
-                               url_prefix + '/assets/' + df['Image Name'] + ')'
+            df['Image Name'] = '[![' + df['Image Name'] + '](' + URL_PREFIX + df['Image Name'] + ')](' + \
+                               URL_PREFIX + df['Image Name'] + ')'
         except Exception as e:
             print(e)
             df['Image Name'] = ''
@@ -93,13 +90,13 @@ def find_last(file_name_list, search_str):
     return last_name
 
 
-def load_image(blob_name):  # shorter reference
-    image_data = GCS_STORAGE.get_img_file(blob_name)
-    return image_data
+# def load_image(blob_name):  # shorter reference
+#     image_data = GCS_STORAGE.get_img_file(blob_name)
+#     return image_data
 
 
 # ******************** start dash app *****************
-URL_PREFIX = ''
+URL_PREFIX = '//storage.googleapis.com/tweeterssp-web-site-contents/'
 PORT = 0
 app = Dash(__name__)
 server = app.server  # get container reference
@@ -177,9 +174,10 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         html.Div([
             html.A([
                 # html.Img(src=app.get_asset_url('birds.gif'), id='animated_gif',
-                html.Img(src=load_image(LAST_GIF_NAME), id='animated_gif',
+                # html.Img(src=load_image(LAST_GIF_NAME), id='animated_gif',
+                html.Img(src=URL_PREFIX+LAST_GIF_NAME, id='animated_gif',
                          style={'height': '320px', 'width': '240px'})
-            ], href=app.get_asset_url(LAST_GIF_NAME), target="_blank"),
+            ], href=URL_PREFIX+LAST_GIF_NAME, target="_blank"),
         ]),
         # graph container
         html.Div([
@@ -191,20 +189,20 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 
     html.Div(children=[
         html.A([
-            html.Img(src=load_image(IMAGE_NAMES[0]), style={'height': '213px', 'width': '160px'})
-        ], href=app.get_asset_url('0.jpg'), target="_blank"),
+            html.Img(src=URL_PREFIX+IMAGE_NAMES[0], style={'height': '213px', 'width': '160px'})
+        ], href=URL_PREFIX+IMAGE_NAMES[0], target="_blank"),
         html.A([
-            html.Img(src=load_image(IMAGE_NAMES[1]), style={'height': '213px', 'width': '160px'},)
-        ], href=app.get_asset_url('1.jpg'), target="_blank"),
+            html.Img(src=URL_PREFIX+IMAGE_NAMES[1], style={'height': '213px', 'width': '160px'},)
+        ], href=URL_PREFIX+IMAGE_NAMES[1], target="_blank"),
         html.A([
-            html.Img(src=load_image(IMAGE_NAMES[2]), style={'height': '213px', 'width': '160px'},)
-        ], href=app.get_asset_url('2.jpg'), target="_blank"),
+            html.Img(src=URL_PREFIX+IMAGE_NAMES[2], style={'height': '213px', 'width': '160px'},)
+        ], href=URL_PREFIX+IMAGE_NAMES[2], target="_blank"),
         html.A([
-            html.Img(src=load_image(IMAGE_NAMES[3]), style={'height': '213px', 'width': '160px'},)
-        ], href=app.get_asset_url('3.jpg'), target="_blank"),
+            html.Img(src=URL_PREFIX+IMAGE_NAMES[3], style={'height': '213px', 'width': '160px'},)
+        ], href=URL_PREFIX+IMAGE_NAMES[3], target="_blank"),
         html.A([
-            html.Img(src=load_image(IMAGE_NAMES[4]), style={'height': '213px', 'width': '160px'},)
-        ], href=app.get_asset_url('4.jpg'), target="_blank"),
+            html.Img(src=URL_PREFIX+IMAGE_NAMES[4], style={'height': '213px', 'width': '160px'},)
+        ], href=URL_PREFIX+IMAGE_NAMES[4], target="_blank"),
     ]
     ),
 
