@@ -5,7 +5,7 @@ import pandas as pd
 import datetime
 import os
 import ifcfg  # does not work on Windows
-import gcs  # shared module from birdclassifier
+import gcs  # shared module from bird classifier project
 
 
 #   html.Div(children=last_refresh(),
