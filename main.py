@@ -6,6 +6,7 @@ import datetime
 import os
 import ifcfg  # does not work on Windows
 import gcs  # shared module from bird classifier project
+import base64
 
 
 #   html.Div(children=last_refresh(),
@@ -24,7 +25,7 @@ def load_message_stream():
     try:
         url_prefix = 'http://' + URL_PREFIX if PORT == 0 else 'http://' + URL_PREFIX + ':' + str(PORT)
         # df = pd.read_csv(os.getcwd()+'/webstream.csv')
-        df = GCS_STORAGE.get_df('webstream.csv')
+        df = GCS_STORAGE.get_df(DATES[0]+'webstream.csv')
         df = df.reset_index(drop=True)
         # df = df.drop(columns=['Unnamed: 0'])
         df = df.sort_values(by='Date Time', ascending=False)
@@ -55,7 +56,7 @@ def load_bird_occurrences():
     cname_list = []
     try:
         # df = pd.read_csv(os.getcwd()+'/web_occurrences.csv')
-        df = GCS_STORAGE.get_df('web_occurrences.csv')
+        df = GCS_STORAGE.get_df(DATES[0]+'web_occurrences.csv')
         df['Date Time'] = pd.to_datetime(df['Date Time'])
         df['Hour'] = pd.to_numeric(df['Date Time'].dt.strftime('%H')) + \
             pd.to_numeric(df['Date Time'].dt.strftime('%M')) / 60
@@ -85,21 +86,50 @@ def load_chart():
     return fig1
 
 
+def load_images():
+    #     html.Img(id="tag_id", src=img_data, alt="my image", width="200", height="400",className="img_class")
+    images_base64 = []
+    blob_names = GCS_STORAGE.get_img_list()
+    images = GCS_STORAGE.get_all_img_files(blob_names)
+    # for img_data in images:
+    #     img_data = base64.b64encode(img_data)
+    #     img_data = img_data.decode()
+    #     img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
+    #     images_base64.append(img_data)
+    return images
+
+
+def to_base64_image(img_data):
+    img_data = base64.b64encode(img_data)
+    img_data = img_data.decode()
+    img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
+    return img_data
+
+
 # ******************** start dash app *****************
+URL_PREFIX = ''
+PORT = 0
 app = Dash(__name__)
 server = app.server  # get container reference
 
 GCS_STORAGE = gcs.Storage()
+CSV_LIST = GCS_STORAGE.get_csv_list()
+DATES = []
+for csv_name in CSV_LIST:
+    csv_date = csv_name[0:csv_name.find('web')]
+    if csv_date not in DATES:
+        DATES.append(csv_date)  # get dates with info
 
-DF = load_bird_occurrences()
-URL_PREFIX = ''
-PORT = 0
+DF = load_bird_occurrences()  # test stream of bird occurrences for graph
+DF_STREAM = load_message_stream()  # message stream from device
+IMAGES = load_images()
+
+
+# ************* Web Layout *********************
 colors = {
     'background': '#111111',
     'text': '#FFFFFF'
 }
-
-df_stream = load_message_stream()
 
 app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
     html.H1(children='Tweeters - Sun Prairie, WI USA', style={
@@ -148,7 +178,8 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         # image container
         html.Div([
             html.A([
-                html.Img(src=app.get_asset_url('birds.gif'), id='animated_gif',
+                # html.Img(src=app.get_asset_url('birds.gif'), id='animated_gif',
+                html.Img(src=IMAGES[0], id='animated_gif',
                          style={'height': '320px', 'width': '240px'})
             ], href=app.get_asset_url('birds.gif'), target="_blank"),
         ]),
@@ -180,7 +211,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     ),
 
     dash_table.DataTable(
-        data=df_stream.to_dict('records'),
+        data=DF_STREAM.to_dict('records'),
         # columns=[{'name': i, 'id': i} for i in df_stream.columns],
         columns=[
                 {"id": "Event Num", "name": "Event Num"},
@@ -274,4 +305,15 @@ if __name__ == "__main__":
             URL_PREFIX = str(interface['inet'])
 
     PORT = 8080
-    app.run_server(debug=True, host=URL_PREFIX, port=PORT)
+    # app.run_server(debug=True, host=URL_PREFIX, port=PORT)
+    app.run_server(debug=True, port=PORT)
+
+
+# possible way to load images
+# with open(imgfile, "rb") as image_file:
+#     img_data = base64.b64encode(image_file.read())
+#     img_data = img_data.decode()
+#     img_data = "{}{}".format("data:image/jpg;base64, ", img_data)
+#     # ...
+#     html.Img(id="tag_id", src=img_data, alt="my image", width="200", height="400",
+#     className="img_class")
