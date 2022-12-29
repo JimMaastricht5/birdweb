@@ -4,7 +4,7 @@ import plotly.express as px
 import pandas as pd
 import datetime
 import os
-import ifcfg  # does not work on windows
+import ifcfg  # does not work on Windows
 import gcs  # shared module from birdclassifier
 
 
@@ -23,7 +23,8 @@ def last_refresh():
 def load_message_stream():
     try:
         url_prefix = 'http://' + URL_PREFIX if PORT == 0 else 'http://' + URL_PREFIX + ':' + str(PORT)
-        df = pd.read_csv(os.getcwd()+'/webstream.csv')
+        # df = pd.read_csv(os.getcwd()+'/webstream.csv')
+        df = GCS_STORAGE.get_df('webstream.csv')
         df = df.reset_index(drop=True)
         # df = df.drop(columns=['Unnamed: 0'])
         df = df.sort_values(by='Date Time', ascending=False)
@@ -53,13 +54,14 @@ def load_message_stream():
 def load_bird_occurrences():
     cname_list = []
     try:
-        df = pd.read_csv(os.getcwd()+'/web_occurrences.csv')
+        # df = pd.read_csv(os.getcwd()+'/web_occurrences.csv')
+        df = GCS_STORAGE.get_df('web_occurrences.csv')
         df['Date Time'] = pd.to_datetime(df['Date Time'])
         df['Hour'] = pd.to_numeric(df['Date Time'].dt.strftime('%H')) + \
             pd.to_numeric(df['Date Time'].dt.strftime('%M')) / 60
         for sname in df['Species']:
             sname = sname[sname.find(' ') + 1:] if sname.find(' ') >= 0 else sname  # remove index number
-            cname = sname[sname.find('(') + 1: sname.find(')')] if sname.find('(') >= 0 else sname  # retrieve common name
+            cname = sname[sname.find('(') + 1: sname.find(')')] if sname.find('(') >= 0 else sname  # common name
             cname_list.append(cname)
         df['Common Name'] = cname_list
     except FileNotFoundError:
@@ -82,9 +84,12 @@ def load_chart():
     )
     return fig1
 
-# create dash app
+
+# ******************** start dash app *****************
 app = Dash(__name__)
 server = app.server  # get container reference
+
+GCS_STORAGE = gcs.Storage()
 
 DF = load_bird_occurrences()
 URL_PREFIX = ''
@@ -107,30 +112,29 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
    '''),
     html.Div([
         dcc.RangeSlider(min=5, max=22,
-                   id='time_range_slider',
-                   step=None,
-                   marks={
-                       5: '05 AM',
-                       6: '06 AM',
-                       7: '07 AM',
-                       8: '08 AM',
-                       9: '09 AM',
-                       10: '10 AM',
-                       11: '11 AM',
-                       12: '12 PM',
-                       13: '01 PM',
-                       14: '02 PM',
-                       15: '03 PM',
-                       16: '04 PM',
-                       17: '05 PM',
-                       18: '06 PM',
-                       19: '07 PM',
-                       20: '08 PM',
-                       21: '09 PM',
-                       22: '10 PM'
-                   },
-                   value=[6, 20]),
-                    html.Div(id='output-container-range-slider')
+                        id='time_range_slider',
+                        step=None,
+                        marks={
+                           5: '05 AM',
+                           6: '06 AM',
+                           7: '07 AM',
+                           8: '08 AM',
+                           9: '09 AM',
+                           10: '10 AM',
+                           11: '11 AM',
+                           12: '12 PM',
+                           13: '01 PM',
+                           14: '02 PM',
+                           15: '03 PM',
+                           16: '04 PM',
+                           17: '05 PM',
+                           18: '06 PM',
+                           19: '07 PM',
+                           20: '08 PM',
+                           21: '09 PM',
+                           22: '10 PM'
+                        },
+                        value=[6, 20]), html.Div(id='output-container-range-slider')
     ]),
     # html.Div(children='''
     # Select species:
@@ -139,7 +143,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     #     dcc.Dropdown(DF['Common Name'].unique(), DF['Common Name'].at[0], id='dropdown'),
     #     html.Div(id='dd-output-container')
     # ]),
-# flex container
+    # flex container
     html.Div([
         # image container
         html.Div([
@@ -222,11 +226,13 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     dcc.Interval(id='interval', interval=30000, n_intervals=0)  # update every 30 seconds
     ])
 
+
 @app.callback(
     Output('output-container-range-slider', 'children'),
     [Input('time_range_slider', 'value')])
 def update_output(value):
     return 'You have selected "{}"'.format(value)
+
 
 @app.callback(
     Output('dd-output-container', 'children'),
@@ -269,5 +275,3 @@ if __name__ == "__main__":
 
     PORT = 8080
     app.run_server(debug=True, host=URL_PREFIX, port=PORT)
-
-
