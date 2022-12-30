@@ -23,19 +23,13 @@ def last_refresh():
 def load_message_stream():
     # https://storage.googleapis.com/tweeterssp-web-site-contents/2022-12-29-11-57-29227.jpg
     try:
+        display_list = ['spotted', 'possible']
         df = GCS_STORAGE.get_df(DATES[0]+'webstream.csv')
+        df = df.drop('Unnamed: 0', axis="columns")
         df = df.reset_index(drop=True)
         df = df.sort_values(by='Date Time', ascending=False)
-        # Markdown format for image as a link: [![alt text](image link)](web link)
-        try:
-            df['Image Name'] = '[![' + df['Image Name'] + '](' + URL_PREFIX + df['Image Name'] + ')](' + \
-                               URL_PREFIX + df['Image Name'] + ')'
-        except Exception as e:
-            print(e)
-            df['Image Name'] = ''
-            pass
-
         df = df[df['Event Num'] != 0]
+        df = df[df['Message Type'].isin(display_list)]
     except FileNotFoundError:
         print('No web stream found, creating empty stream')
         df = pd.DataFrame({
@@ -88,11 +82,6 @@ def find_last(file_name_list, search_str):
             last_name = file_name
             break
     return last_name
-
-
-# def load_image(blob_name):  # shorter reference
-#     image_data = GCS_STORAGE.get_img_file(blob_name)
-#     return image_data
 
 
 # ******************** start dash app *****************
@@ -161,20 +150,20 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
                         },
                         value=[6, 20]), html.Div(id='output-container-range-slider')
     ]),
-    # html.Div(children='''
-    # Select species:
-    # '''),
-    # html.Div([
-    #     dcc.Dropdown(DF['Common Name'].unique(), DF['Common Name'].at[0], id='dropdown'),
-    #     html.Div(id='dd-output-container')
-    # ]),
+    html.Div(children='''
+    Select species:
+    '''),
+    html.Div([
+        dcc.Dropdown(DF['Common Name'].unique(), DF['Common Name'].at[0], id='dropdown'),
+        html.Div(id='dd-output-container')
+        ],
+        style={'width': '240px'},
+    ),
     # flex container
     html.Div([
         # image container
         html.Div([
             html.A([
-                # html.Img(src=app.get_asset_url('birds.gif'), id='animated_gif',
-                # html.Img(src=load_image(LAST_GIF_NAME), id='animated_gif',
                 html.Img(src=URL_PREFIX+LAST_GIF_NAME, id='animated_gif',
                          style={'height': '320px', 'width': '240px'})
             ], href=URL_PREFIX+LAST_GIF_NAME, target="_blank"),
@@ -203,6 +192,9 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
         html.A([
             html.Img(src=URL_PREFIX+IMAGE_NAMES[4], style={'height': '213px', 'width': '160px'},)
         ], href=URL_PREFIX+IMAGE_NAMES[4], target="_blank"),
+        html.A([
+            html.Img(src=URL_PREFIX + IMAGE_NAMES[5], style={'height': '213px', 'width': '160px'}, )
+        ], href=URL_PREFIX + IMAGE_NAMES[5], target="_blank"),
     ]
     ),
 
@@ -257,7 +249,7 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
 @app.callback(
     Output('output-container-range-slider', 'children'),
     [Input('time_range_slider', 'value')])
-def update_output(value):
+def update_output_slider(value):
     return 'You have selected "{}"'.format(value)
 
 
@@ -265,7 +257,7 @@ def update_output(value):
     Output('dd-output-container', 'children'),
     Input('dropdown', 'value')
 )
-def update_output(value):
+def update_output_dropdown(value):
     return f'You have selected {value}'
 
 
